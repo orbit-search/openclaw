@@ -32,6 +32,7 @@ import {
   resolveOpenAiCompatModelOverride,
   resolveOpenAiCompatibleHttpOperatorScopes,
   resolveOpenAiCompatibleHttpSenderIsOwner,
+  resolveWorkspaceOverride,
 } from "./http-utils.js";
 import { normalizeInputHostnameAllowlist } from "./input-allowlist.js";
 
@@ -112,6 +113,7 @@ function buildAgentCommandInput(params: {
   runId: string;
   messageChannel: string;
   senderIsOwner: boolean;
+  workspaceDir?: string;
 }) {
   return {
     message: params.prompt.message,
@@ -125,6 +127,7 @@ function buildAgentCommandInput(params: {
     bestEffortDeliver: false as const,
     senderIsOwner: params.senderIsOwner,
     allowModelOverride: true as const,
+    workspaceDir: params.workspaceDir,
   };
 }
 
@@ -493,6 +496,7 @@ export async function handleOpenAiHttpRequest(
 
   const runId = `chatcmpl_${randomUUID()}`;
   const deps = createDefaultDeps();
+  const workspaceOverride = resolveWorkspaceOverride(req);
   const commandInput = buildAgentCommandInput({
     prompt: {
       message: prompt.message,
@@ -504,6 +508,7 @@ export async function handleOpenAiHttpRequest(
     runId,
     messageChannel,
     senderIsOwner,
+    workspaceDir: workspaceOverride,
   });
 
   if (!stream) {

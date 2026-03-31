@@ -311,3 +311,11 @@ export function resolveGatewayRequestContext(params: {
 
   return { agentId, sessionKey, messageChannel };
 }
+
+export function resolveWorkspaceOverride(req: IncomingMessage): string | undefined {
+  const raw = getHeader(req, "x-openclaw-workspace")?.trim();
+  if (!raw) return undefined;
+  if (!raw.startsWith("/")) return undefined;
+  if (raw.includes("..")) return undefined;
+  return raw;
+}
