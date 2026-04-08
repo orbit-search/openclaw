@@ -87,6 +87,9 @@ export type SessionEntry = {
   spawnedBy?: string;
   /** Workspace inherited by spawned sessions and reused on later turns for the same child session. */
   spawnedWorkspaceDir?: string;
+  /** Workspace explicitly set via x-openclaw-workspace header at session creation. Persisted so
+   *  session resumption (e.g. subagent announce delivery) resolves the correct workspace. */
+  effectiveWorkspaceDir?: string;
   /** Explicit parent session linkage for dashboard-created child sessions. */
   parentSessionKey?: string;
   /** True after a thread/topic session has been forked from its parent transcript once. */
