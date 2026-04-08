@@ -354,6 +354,7 @@ export async function performGatewaySessionReset(params: {
       queueDrop: currentEntry?.queueDrop,
       spawnedBy: currentEntry?.spawnedBy,
       spawnedWorkspaceDir: currentEntry?.spawnedWorkspaceDir,
+      effectiveWorkspaceDir: currentEntry?.effectiveWorkspaceDir,
       parentSessionKey: currentEntry?.parentSessionKey,
       forkedFromParent: currentEntry?.forkedFromParent,
       spawnDepth: currentEntry?.spawnDepth,

@@ -501,6 +501,7 @@ export async function initSessionState(params: {
     label: persistedLabel ?? baseEntry?.label,
     spawnedBy: persistedSpawnedBy ?? baseEntry?.spawnedBy,
     spawnedWorkspaceDir: persistedSpawnedWorkspaceDir ?? baseEntry?.spawnedWorkspaceDir,
+    effectiveWorkspaceDir: baseEntry?.effectiveWorkspaceDir,
     parentSessionKey: persistedParentSessionKey ?? baseEntry?.parentSessionKey,
     forkedFromParent: persistedForkedFromParent ?? baseEntry?.forkedFromParent,
     spawnDepth: persistedSpawnDepth ?? baseEntry?.spawnDepth,
