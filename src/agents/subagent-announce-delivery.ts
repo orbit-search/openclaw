@@ -357,8 +357,10 @@ export function loadRequesterSessionEntry(requesterSessionKey: string) {
   const agentId = resolveAgentIdFromSessionKey(canonicalKey);
   const storePath = resolveStorePath(cfg.session?.store, { agentId });
   const store = loadSessionStore(storePath);
-  const entry = store[canonicalKey];
-  return { cfg, entry, canonicalKey };
+  const rawKey = (requesterSessionKey ?? "").trim();
+  const entry = store[canonicalKey] ?? (rawKey !== canonicalKey ? store[rawKey] : undefined);
+  const matchedKey = store[canonicalKey] ? canonicalKey : rawKey;
+  return { cfg, entry, canonicalKey: matchedKey };
 }
 
 export function loadSessionEntryByKey(sessionKey: string) {
@@ -393,8 +395,11 @@ async function maybeQueueSubagentAnnounce(params: {
   if (params.signal?.aborted) {
     return "none";
   }
-  const { cfg, entry } = loadRequesterSessionEntry(params.requesterSessionKey);
-  const canonicalKey = resolveRequesterStoreKey(cfg, params.requesterSessionKey);
+  const {
+    cfg,
+    entry,
+    canonicalKey: matchedKey,
+  } = loadRequesterSessionEntry(params.requesterSessionKey);
   const sessionId = entry?.sessionId;
   if (!sessionId) {
     return "none";
@@ -423,14 +428,14 @@ async function maybeQueueSubagentAnnounce(params: {
   if (isActive && (shouldFollowup || queueSettings.mode === "steer")) {
     const origin = resolveAnnounceOrigin(entry, params.requesterOrigin);
     const didQueue = enqueueAnnounce({
-      key: buildAnnounceQueueKey(canonicalKey, origin),
+      key: buildAnnounceQueueKey(matchedKey, origin),
       item: {
         announceId: params.announceId,
         prompt: params.triggerMessage,
         summaryLine: params.summaryLine,
         internalEvents: params.internalEvents,
         enqueuedAt: Date.now(),
-        sessionKey: canonicalKey,
+        sessionKey: matchedKey,
         origin,
         sourceSessionKey: params.sourceSessionKey,
         sourceChannel: params.sourceChannel,
@@ -469,10 +474,13 @@ async function sendSubagentAnnounceDirectly(params: {
   }
   const cfg = subagentAnnounceDeliveryDeps.loadConfig();
   const announceTimeoutMs = resolveSubagentAnnounceTimeoutMs(cfg);
-  const canonicalRequesterSessionKey = resolveRequesterStoreKey(
-    cfg,
-    params.targetRequesterSessionKey,
-  );
+  // Pass the raw requester session key to the gateway instead of pre-canonicalizing.
+  // The gateway's loadSessionEntry → resolveGatewaySessionStoreTarget scans both
+  // the raw key and the canonical form, so it finds entries stored under either format
+  // (e.g. "user-xyz" from the OpenResponses HTTP path or "agent:main:user-xyz" from
+  // the gateway agent handler path). Pre-canonicalizing here would prevent the gateway
+  // from scanning the raw key, causing a miss when the entry was stored under it.
+  const targetSessionKey = (params.targetRequesterSessionKey ?? "").trim();
   try {
     const completionDirectOrigin = normalizeDeliveryContext(params.completionDirectOrigin);
     const directOrigin = normalizeDeliveryContext(params.directOrigin);
@@ -515,7 +523,7 @@ async function sendSubagentAnnounceDirectly(params: {
         await subagentAnnounceDeliveryDeps.callGateway({
           method: "agent",
           params: {
-            sessionKey: canonicalRequesterSessionKey,
+            sessionKey: targetSessionKey,
             message: params.triggerMessage,
             deliver: deliveryTarget.deliver,
             bestEffortDeliver: params.bestEffortDeliver,
