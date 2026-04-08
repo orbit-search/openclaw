@@ -538,6 +538,9 @@ async function agentCommandInternal(
         next.thinkingLevel = thinkOverride;
       }
       applyVerboseOverride(next, verboseOverride);
+      if (normalizedSpawned.workspaceDir && !entry.effectiveWorkspaceDir) {
+        next.effectiveWorkspaceDir = workspaceDir;
+      }
       await persistSessionEntry({
         sessionStore,
         sessionKey,

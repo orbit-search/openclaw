@@ -143,6 +143,7 @@ function emitSessionsChanged(
             origin: sessionRow.origin,
             spawnedBy: sessionRow.spawnedBy,
             spawnedWorkspaceDir: sessionRow.spawnedWorkspaceDir,
+            effectiveWorkspaceDir: sessionRow.effectiveWorkspaceDir,
             forkedFromParent: sessionRow.forkedFromParent,
             spawnDepth: sessionRow.spawnDepth,
             subagentRole: sessionRow.subagentRole,
@@ -574,6 +575,7 @@ export const agentHandlers: GatewayRequestHandlers = {
         label: labelValue,
         spawnedBy: spawnedByValue,
         spawnedWorkspaceDir: entry?.spawnedWorkspaceDir,
+        effectiveWorkspaceDir: entry?.effectiveWorkspaceDir,
         spawnDepth: entry?.spawnDepth,
         channel: entry?.channel ?? request.channel?.trim(),
         groupId: resolvedGroupId ?? entry?.groupId,
@@ -838,11 +840,11 @@ export const agentHandlers: GatewayRequestHandlers = {
         extraSystemPrompt: request.extraSystemPrompt,
         internalEvents: request.internalEvents,
         inputProvenance,
-        // Internal-only: allow workspace override for spawned subagent runs.
-        workspaceDir: resolveIngressWorkspaceOverrideForSpawnedRun({
-          spawnedBy: spawnedByValue,
-          workspaceDir: sessionEntry?.spawnedWorkspaceDir,
-        }),
+        workspaceDir:
+          resolveIngressWorkspaceOverrideForSpawnedRun({
+            spawnedBy: spawnedByValue,
+            workspaceDir: sessionEntry?.spawnedWorkspaceDir,
+          }) ?? sessionEntry?.effectiveWorkspaceDir,
         senderIsOwner,
         allowModelOverride,
       },
