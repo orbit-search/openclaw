@@ -528,7 +528,15 @@ export const agentHandlers: GatewayRequestHandlers = {
     }
 
     if (requestedSessionKey) {
-      const { cfg, storePath, entry, canonicalKey } = loadSessionEntry(requestedSessionKey);
+      const {
+        cfg,
+        storePath,
+        store: sessionStore,
+        entry: scannedEntry,
+        canonicalKey,
+      } = loadSessionEntry(requestedSessionKey);
+      const rawKey = requestedSessionKey.trim();
+      const entry = scannedEntry ?? (rawKey !== canonicalKey ? sessionStore[rawKey] : undefined);
       cfgForAgent = cfg;
       isNewSession = !entry;
       const now = Date.now();
