@@ -405,11 +405,13 @@ function coerceRequest(val: unknown): OpenAiChatCompletionRequest {
 }
 
 function resolveAgentResponseText(result: unknown): string {
-  const payloads = (result as { payloads?: Array<{ text?: string }> } | null)?.payloads;
+  const payloads = (result as { payloads?: Array<{ text?: string; isReasoning?: boolean }> } | null)
+    ?.payloads;
   if (!Array.isArray(payloads) || payloads.length === 0) {
     return "No response from OpenClaw.";
   }
   const content = payloads
+    .filter((p) => !p.isReasoning)
     .map((p) => (typeof p.text === "string" ? p.text : ""))
     .filter(Boolean)
     .join("\n\n");
