@@ -405,19 +405,17 @@ function coerceRequest(val: unknown): OpenAiChatCompletionRequest {
 }
 
 function resolveAgentResponseText(result: unknown): string {
-  const payloads = (
-    result as {
-      payloads?: Array<{ text?: string; isReasoning?: boolean; isError?: boolean }>;
-    } | null
-  )?.payloads;
+  const payloads = (result as { payloads?: Array<{ text?: string; isReasoning?: boolean }> } | null)
+    ?.payloads;
   if (!Array.isArray(payloads) || payloads.length === 0) {
     return "No response from OpenClaw.";
   }
-  const contentPayloads = payloads.filter(
-    (p) => !p.isReasoning && !p.isError && typeof p.text === "string" && p.text.trim(),
-  );
-  const last = contentPayloads.at(-1);
-  return last?.text?.trim() || "No response from OpenClaw.";
+  const content = payloads
+    .filter((p) => !p.isReasoning)
+    .map((p) => (typeof p.text === "string" ? p.text : ""))
+    .filter(Boolean)
+    .join("\n\n");
+  return content || "No response from OpenClaw.";
 }
 
 export async function handleOpenAiHttpRequest(
