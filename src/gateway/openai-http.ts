@@ -28,6 +28,7 @@ import type { ResolvedGatewayAuth } from "./auth.js";
 import { sendJson, setSseHeaders, writeDone } from "./http-common.js";
 import { handleGatewayPostJsonEndpoint } from "./http-endpoint-helpers.js";
 import {
+  getHeader,
   resolveGatewayRequestContext,
   resolveOpenAiCompatModelOverride,
   resolveOpenAiCompatibleHttpOperatorScopes,
@@ -327,6 +328,7 @@ async function resolveImagesForRequest(
 export const __testOnlyOpenAiHttp = {
   resolveImagesForRequest,
   resolveOpenAiChatCompletionsLimits,
+  resolveAgentResponseText,
 };
 
 function buildAgentPrompt(
@@ -404,11 +406,20 @@ function coerceRequest(val: unknown): OpenAiChatCompletionRequest {
   return val as OpenAiChatCompletionRequest;
 }
 
-function resolveAgentResponseText(result: unknown): string {
-  const payloads = (result as { payloads?: Array<{ text?: string }> } | null)?.payloads;
+function resolveAgentResponseText(result: unknown, opts?: { finalResponseOnly?: boolean }): string {
+  const payloads = (result as { payloads?: Array<{ text?: string; isReasoning?: boolean }> } | null)
+    ?.payloads;
   if (!Array.isArray(payloads) || payloads.length === 0) {
     return "No response from OpenClaw.";
   }
+
+  if (opts?.finalResponseOnly) {
+    const lastText = [...payloads]
+      .toReversed()
+      .find((p) => typeof p.text === "string" && p.text.trim() && p.isReasoning !== true);
+    return lastText?.text?.trim() || "No response from OpenClaw.";
+  }
+
   const content = payloads
     .map((p) => (typeof p.text === "string" ? p.text : ""))
     .filter(Boolean)
@@ -511,11 +522,13 @@ export async function handleOpenAiHttpRequest(
     workspaceDir: workspaceOverride,
   });
 
+  const finalResponseOnly = getHeader(req, "x-openclaw-final-response-only") === "true";
+
   if (!stream) {
     try {
       const result = await agentCommandFromIngress(commandInput, defaultRuntime, deps);
 
-      const content = resolveAgentResponseText(result);
+      const content = resolveAgentResponseText(result, { finalResponseOnly });
 
       sendJson(res, 200, {
         id: runId,
@@ -605,7 +618,7 @@ export async function handleOpenAiHttpRequest(
           writeAssistantRoleChunk(res, { runId, model });
         }
 
-        const content = resolveAgentResponseText(result);
+        const content = resolveAgentResponseText(result, { finalResponseOnly });
 
         sawAssistantDelta = true;
         writeAssistantContentChunk(res, {
