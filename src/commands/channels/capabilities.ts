@@ -91,6 +91,9 @@ function formatSupport(capabilities?: ChannelCapabilities) {
   if (capabilities.blockStreaming) {
     bits.push("blockStreaming");
   }
+  if (capabilities.finalResponseOnly) {
+    bits.push("finalResponseOnly");
+  }
   return bits.length ? bits.join(" ") : "none";
 }
 

@@ -243,6 +243,11 @@ export type ChannelCapabilities = {
   media?: boolean;
   nativeCommands?: boolean;
   blockStreaming?: boolean;
+  /** When true, only the last assistant text block of a turn is delivered to the
+   *  channel. Earlier intermediate blocks (e.g. tool-use thinking) are suppressed.
+   *  Media payloads are always delivered regardless of this flag.
+   *  Default: false (all text blocks are delivered). */
+  finalResponseOnly?: boolean;
 };
 
 export type ChannelSecurityDmPolicy = {

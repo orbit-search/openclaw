@@ -6,6 +6,7 @@ import {
   touchConversationBindingRecord,
 } from "../../bindings/records.js";
 import { shouldSuppressLocalExecApprovalPrompt } from "../../channels/plugins/exec-approval-local.js";
+import { getChannelPlugin } from "../../channels/plugins/index.js";
 import type { OpenClawConfig } from "../../config/config.js";
 import { parseSessionThreadInfo } from "../../config/sessions/delivery-info.js";
 import { resolveStorePath } from "../../config/sessions/paths.js";
@@ -617,6 +618,11 @@ export async function dispatchReplyFromConfig(params: {
     let accumulatedBlockText = "";
     let blockCount = 0;
 
+    // When a channel declares finalResponseOnly, only the last assistant text block
+    // is delivered. Intermediate blocks are suppressed at the channel delivery layer
+    // so the control UI / WebSocket clients still see all blocks for debugging.
+    const finalResponseOnly = getChannelPlugin(channel)?.capabilities?.finalResponseOnly === true;
+
     const resolveToolDeliveryPayload = (payload: ReplyPayload): ReplyPayload | null => {
       if (
         shouldSuppressLocalExecApprovalPrompt({
@@ -661,6 +667,8 @@ export async function dispatchReplyFromConfig(params: {
       ctx,
       {
         ...params.replyOptions,
+        disableBlockStreaming:
+          params.replyOptions?.disableBlockStreaming || finalResponseOnly || undefined,
         typingPolicy: typing.typingPolicy,
         suppressTyping: typing.suppressTyping,
         onToolResult: (payload: ReplyPayload) => {
@@ -702,6 +710,12 @@ export async function dispatchReplyFromConfig(params: {
               }
               accumulatedBlockText += payload.text;
               blockCount++;
+            }
+            if (finalResponseOnly) {
+              const hasMedia = resolveSendableOutboundReplyParts(payload).hasMedia;
+              if (!hasMedia) {
+                return;
+              }
             }
             const ttsPayload = await maybeApplyTtsToPayload({
               payload,
@@ -751,7 +765,17 @@ export async function dispatchReplyFromConfig(params: {
       }
     }
 
-    const replies = replyResult ? (Array.isArray(replyResult) ? replyResult : [replyResult]) : [];
+    let replies = replyResult ? (Array.isArray(replyResult) ? replyResult : [replyResult]) : [];
+
+    if (finalResponseOnly && replies.length > 0) {
+      const lastTextReply = [...replies]
+        .toReversed()
+        .find((r) => r.text?.trim() && r.isReasoning !== true && r.isCompactionNotice !== true);
+      const mediaOnlyReplies = replies.filter(
+        (r) => !r.text?.trim() && resolveSendableOutboundReplyParts(r).hasMedia,
+      );
+      replies = lastTextReply ? [...mediaOnlyReplies, lastTextReply] : mediaOnlyReplies;
+    }
 
     let queuedFinal = false;
     let routedFinalCount = 0;
