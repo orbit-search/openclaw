@@ -1432,6 +1432,7 @@ export async function runEmbeddedPiAgent(
               durationMs: Date.now() - started,
               agentMeta,
               aborted,
+              yieldDetected: attempt.yieldDetected || undefined,
               systemPromptReport: attempt.systemPromptReport,
               // Handle client tool calls (OpenResponses hosted tools)
               // Propagate the LLM stop reason so callers (lifecycle events,

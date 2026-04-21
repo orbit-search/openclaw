@@ -406,6 +406,85 @@ function coerceRequest(val: unknown): OpenAiChatCompletionRequest {
   return val as OpenAiChatCompletionRequest;
 }
 
+const DEFAULT_YIELD_WAIT_TIMEOUT_MS = 5 * 60 * 1000;
+const MAX_YIELD_ROUNDS = 10;
+
+function resultYielded(result: unknown): boolean {
+  return (result as { meta?: { yieldDetected?: boolean } } | null)?.meta?.yieldDetected === true;
+}
+
+function waitForFollowUpResponse(params: {
+  sessionKey: string;
+  timeoutMs: number;
+  req: IncomingMessage;
+}): Promise<string | null> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const assistantChunks: string[] = [];
+    let followUpRunId: string | undefined;
+    let yieldRounds = 0;
+
+    const finish = (text: string | null) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      clearTimeout(timer);
+      unsubscribe();
+      params.req.removeListener("close", onClose);
+      resolve(text);
+    };
+
+    const unsubscribe = onAgentEvent((evt) => {
+      if (settled) {
+        return;
+      }
+      if (evt.sessionKey !== params.sessionKey) {
+        return;
+      }
+
+      if (evt.stream === "assistant") {
+        if (!followUpRunId) {
+          followUpRunId = evt.runId;
+        }
+        if (evt.runId === followUpRunId) {
+          const text = resolveAssistantStreamDeltaText(evt) ?? "";
+          if (text) {
+            assistantChunks.push(text);
+          }
+        }
+      }
+
+      if (evt.stream === "lifecycle") {
+        const phase = evt.data?.phase;
+        if (phase === "error") {
+          finish(assistantChunks.length > 0 ? assistantChunks.join("") : null);
+          return;
+        }
+
+        if (phase === "end") {
+          const yielded = evt.data?.yieldDetected === true;
+          if (yielded) {
+            yieldRounds += 1;
+            if (yieldRounds >= MAX_YIELD_ROUNDS) {
+              finish(assistantChunks.length > 0 ? assistantChunks.join("") : null);
+              return;
+            }
+            followUpRunId = undefined;
+            assistantChunks.length = 0;
+            return;
+          }
+          finish(assistantChunks.length > 0 ? assistantChunks.join("") : null);
+        }
+      }
+    });
+
+    const timer = setTimeout(() => finish(null), params.timeoutMs);
+    const onClose = () => finish(null);
+    params.req.once("close", onClose);
+  });
+}
+
 function resolveAgentResponseText(result: unknown, opts?: { finalResponseOnly?: boolean }): string {
   const payloads = (result as { payloads?: Array<{ text?: string; isReasoning?: boolean }> } | null)
     ?.payloads;
@@ -528,7 +607,17 @@ export async function handleOpenAiHttpRequest(
     try {
       const result = await agentCommandFromIngress(commandInput, defaultRuntime, deps);
 
-      const content = resolveAgentResponseText(result, { finalResponseOnly });
+      let content: string;
+      if (resultYielded(result) && !req.destroyed) {
+        const followUpText = await waitForFollowUpResponse({
+          sessionKey,
+          timeoutMs: DEFAULT_YIELD_WAIT_TIMEOUT_MS,
+          req,
+        });
+        content = followUpText || resolveAgentResponseText(result, { finalResponseOnly });
+      } else {
+        content = resolveAgentResponseText(result, { finalResponseOnly });
+      }
 
       sendJson(res, 200, {
         id: runId,
@@ -558,12 +647,41 @@ export async function handleOpenAiHttpRequest(
   let wroteRole = false;
   let sawAssistantDelta = false;
   let closed = false;
+  let waitingForFollowUp = false;
+  let followUpRunId: string | undefined;
+  let yieldRounds = 0;
 
-  const unsubscribe = onAgentEvent((evt) => {
-    if (evt.runId !== runId) {
+  const finishSse = () => {
+    if (closed) {
       return;
     }
+    closed = true;
+    unsubscribe();
+    writeDone(res);
+    res.end();
+  };
+
+  const matchesCurrentRun = (evt: { runId: string; sessionKey?: string }) => {
+    if (evt.runId === runId) {
+      return true;
+    }
+    if (!waitingForFollowUp) {
+      return false;
+    }
+    if (evt.sessionKey !== sessionKey) {
+      return false;
+    }
+    if (!followUpRunId) {
+      followUpRunId = evt.runId;
+    }
+    return evt.runId === followUpRunId;
+  };
+
+  const unsubscribe = onAgentEvent((evt) => {
     if (closed) {
+      return;
+    }
+    if (!matchesCurrentRun(evt)) {
       return;
     }
 
@@ -590,11 +708,18 @@ export async function handleOpenAiHttpRequest(
 
     if (evt.stream === "lifecycle") {
       const phase = evt.data?.phase;
+      if (phase === "end") {
+        const yielded = evt.data?.yieldDetected === true;
+        if (yielded && yieldRounds < MAX_YIELD_ROUNDS) {
+          yieldRounds += 1;
+          waitingForFollowUp = true;
+          followUpRunId = undefined;
+          return;
+        }
+      }
+
       if (phase === "end" || phase === "error") {
-        closed = true;
-        unsubscribe();
-        writeDone(res);
-        res.end();
+        finishSse();
       }
     }
   });
@@ -604,11 +729,23 @@ export async function handleOpenAiHttpRequest(
     unsubscribe();
   });
 
+  const yieldTimeoutTimer = setTimeout(() => {
+    if (waitingForFollowUp && !closed) {
+      finishSse();
+    }
+  }, DEFAULT_YIELD_WAIT_TIMEOUT_MS);
+
   void (async () => {
     try {
       const result = await agentCommandFromIngress(commandInput, defaultRuntime, deps);
 
       if (closed) {
+        return;
+      }
+
+      if (resultYielded(result)) {
+        waitingForFollowUp = true;
+        followUpRunId = undefined;
         return;
       }
 
@@ -645,11 +782,9 @@ export async function handleOpenAiHttpRequest(
         data: { phase: "error" },
       });
     } finally {
-      if (!closed) {
-        closed = true;
-        unsubscribe();
-        writeDone(res);
-        res.end();
+      clearTimeout(yieldTimeoutTimer);
+      if (!closed && !waitingForFollowUp) {
+        finishSse();
       }
     }
   })();

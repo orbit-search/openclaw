@@ -820,6 +820,7 @@ async function agentCommandInternal(
             endedAt: Date.now(),
             aborted: result.meta.aborted ?? false,
             stopReason,
+            yieldDetected: result.meta.yieldDetected ?? false,
           },
         });
       }
