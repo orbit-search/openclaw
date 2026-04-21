@@ -147,6 +147,7 @@ function buildAgentCommandInput(params: {
   replyToId?: string;
   deliver?: boolean;
   channel?: string;
+  to?: string;
 }) {
   return {
     message: params.prompt.message,
@@ -164,6 +165,7 @@ function buildAgentCommandInput(params: {
     deliveryCtx: params.deliveryCtx,
     replyToId: params.replyToId,
     channel: params.channel,
+    to: params.to,
   };
 }
 
@@ -629,6 +631,7 @@ export async function handleOpenAiHttpRequest(
   const deliveryCtx = extractCtxHeaders(req);
   const replyToId = deliveryCtx?.replytoid;
   const channelRouted = !isInternalMessageChannel(messageChannel);
+  const deliverTo = channelRouted ? getHeader(req, "x-openclaw-deliver-to")?.trim() : undefined;
   const commandInput = buildAgentCommandInput({
     prompt: {
       message: prompt.message,
@@ -645,6 +648,7 @@ export async function handleOpenAiHttpRequest(
     replyToId,
     deliver: channelRouted,
     channel: channelRouted ? messageChannel : undefined,
+    to: deliverTo || undefined,
   });
 
   // Channel-routed request: fire-and-forget, let the channel pipeline deliver.
