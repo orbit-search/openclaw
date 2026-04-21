@@ -419,6 +419,8 @@ function waitForFollowUpResponse(params: {
   req: IncomingMessage;
 }): Promise<string | null> {
   return new Promise((resolve) => {
+    console.log("[openai-http] waitForFollowUpResponse entered, sessionKey:", params.sessionKey);
+
     let settled = false;
     const assistantChunks: string[] = [];
     let followUpRunId: string | undefined;
@@ -428,6 +430,7 @@ function waitForFollowUpResponse(params: {
       if (settled) {
         return;
       }
+      console.log("[openai-http] waitForFollowUpResponse finish, text length:", text?.length ?? 0);
       settled = true;
       clearTimeout(timer);
       unsubscribe();
@@ -439,6 +442,7 @@ function waitForFollowUpResponse(params: {
       if (settled) {
         return;
       }
+      console.log("[openai-http] event:", evt.stream, evt.sessionKey, evt.runId);
       if (evt.sessionKey !== params.sessionKey) {
         return;
       }
@@ -606,6 +610,12 @@ export async function handleOpenAiHttpRequest(
   if (!stream) {
     try {
       const result = await agentCommandFromIngress(commandInput, defaultRuntime, deps);
+
+      console.log(
+        "[openai-http] result meta:",
+        JSON.stringify((result as { meta?: unknown } | null)?.meta ?? {}),
+      );
+      console.log("[openai-http] yieldDetected:", resultYielded(result));
 
       let content: string;
       if (resultYielded(result) && !req.destroyed) {
