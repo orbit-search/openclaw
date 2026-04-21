@@ -93,6 +93,10 @@ export type AgentCommandOpts = {
   workspaceDir?: SpawnedRunMetadata["workspaceDir"];
   /** Force bundled MCP teardown when a one-shot local run completes. */
   cleanupBundleMcpOnRunEnd?: boolean;
+  /** Channel delivery context forwarded from HTTP ingress (X-OpenClaw-Ctx-* headers). */
+  deliveryCtx?: Record<string, string>;
+  /** Explicit reply-to message id for channel delivery threading. */
+  replyToId?: string;
 };
 
 export type AgentCommandIngressOpts = Omit<

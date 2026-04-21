@@ -37,6 +37,33 @@ import {
 } from "./http-utils.js";
 import { normalizeInputHostnameAllowlist } from "./input-allowlist.js";
 
+const CTX_HEADER_PREFIX = "x-openclaw-ctx-";
+
+/**
+ * Extract all `X-OpenClaw-Ctx-*` request headers, strip the prefix, and return
+ * them as a plain key→value map.  Header names are lower-cased after stripping
+ * so that `X-OpenClaw-Ctx-ReplyToId` becomes `replytoid` in the map.
+ */
+function extractCtxHeaders(req: IncomingMessage): Record<string, string> | undefined {
+  let ctx: Record<string, string> | undefined;
+  for (const [key, value] of Object.entries(req.headers)) {
+    if (!key.startsWith(CTX_HEADER_PREFIX)) {
+      continue;
+    }
+    const strippedKey = key.slice(CTX_HEADER_PREFIX.length);
+    if (!strippedKey) {
+      continue;
+    }
+    const strValue =
+      typeof value === "string" ? value : Array.isArray(value) ? value[0] : undefined;
+    if (strValue != null) {
+      ctx ??= {};
+      ctx[strippedKey] = strValue;
+    }
+  }
+  return ctx;
+}
+
 type OpenAiHttpOptions = {
   auth: ResolvedGatewayAuth;
   config?: GatewayHttpChatCompletionsConfig;
@@ -115,6 +142,8 @@ function buildAgentCommandInput(params: {
   messageChannel: string;
   senderIsOwner: boolean;
   workspaceDir?: string;
+  deliveryCtx?: Record<string, string>;
+  replyToId?: string;
 }) {
   return {
     message: params.prompt.message,
@@ -129,6 +158,8 @@ function buildAgentCommandInput(params: {
     senderIsOwner: params.senderIsOwner,
     allowModelOverride: true as const,
     workspaceDir: params.workspaceDir,
+    deliveryCtx: params.deliveryCtx,
+    replyToId: params.replyToId,
   };
 }
 
@@ -591,6 +622,8 @@ export async function handleOpenAiHttpRequest(
   const runId = `chatcmpl_${randomUUID()}`;
   const deps = createDefaultDeps();
   const workspaceOverride = resolveWorkspaceOverride(req);
+  const deliveryCtx = extractCtxHeaders(req);
+  const replyToId = deliveryCtx?.replytoid;
   const commandInput = buildAgentCommandInput({
     prompt: {
       message: prompt.message,
@@ -603,6 +636,8 @@ export async function handleOpenAiHttpRequest(
     messageChannel,
     senderIsOwner,
     workspaceDir: workspaceOverride,
+    deliveryCtx,
+    replyToId,
   });
 
   const finalResponseOnly = getHeader(req, "x-openclaw-final-response-only") === "true";
