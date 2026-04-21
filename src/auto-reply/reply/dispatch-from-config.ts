@@ -673,8 +673,18 @@ export async function dispatchReplyFromConfig(params: {
         suppressTyping: typing.suppressTyping,
         onToolResult: (payload: ReplyPayload) => {
           const run = async () => {
+            // When finalResponseOnly is set, suppress text-only tool results so the
+            // channel receives exactly one text delivery (the final reply).  Media
+            // payloads (images, audio, etc.) are still delivered immediately because
+            // they cannot be reconstructed from the final text.
+            if (finalResponseOnly) {
+              const hasMedia = resolveSendableOutboundReplyParts(payload).hasMedia;
+              if (!hasMedia) {
+                return;
+              }
+            }
             const ttsPayload = await maybeApplyTtsToPayload({
-              payload,
+              payload: finalResponseOnly ? { ...payload, text: undefined } : payload,
               cfg,
               channel: ttsChannel,
               kind: "tool",
