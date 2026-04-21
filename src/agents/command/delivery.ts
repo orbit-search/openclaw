@@ -309,6 +309,7 @@ export async function deliverAgentCommandResult(params: {
         onError: (err) => logDeliveryError(err),
         onPayload: logPayload,
         deps: createOutboundSendDeps(deps),
+        deliveryCtx: opts.deliveryCtx,
       });
     }
   }

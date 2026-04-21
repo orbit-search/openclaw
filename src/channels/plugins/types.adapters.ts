@@ -151,6 +151,7 @@ export type ChannelOutboundContext = {
   deps?: OutboundSendDeps;
   silent?: boolean;
   gatewayClientScopes?: readonly string[];
+  deliveryCtx?: Record<string, string>;
 };
 
 export type ChannelOutboundPayloadContext = ChannelOutboundContext & {

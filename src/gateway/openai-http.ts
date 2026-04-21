@@ -18,6 +18,7 @@ import {
   type InputImageSource,
 } from "../media/input-files.js";
 import { defaultRuntime } from "../runtime.js";
+import { isInternalMessageChannel } from "../utils/message-channel.js";
 import { resolveAssistantStreamDeltaText } from "./agent-event-assistant-text.js";
 import {
   buildAgentMessageFromConversationEntries,
@@ -144,6 +145,8 @@ function buildAgentCommandInput(params: {
   workspaceDir?: string;
   deliveryCtx?: Record<string, string>;
   replyToId?: string;
+  deliver?: boolean;
+  channel?: string;
 }) {
   return {
     message: params.prompt.message,
@@ -152,7 +155,7 @@ function buildAgentCommandInput(params: {
     model: params.modelOverride,
     sessionKey: params.sessionKey,
     runId: params.runId,
-    deliver: false as const,
+    deliver: params.deliver ?? false,
     messageChannel: params.messageChannel,
     bestEffortDeliver: false as const,
     senderIsOwner: params.senderIsOwner,
@@ -160,6 +163,7 @@ function buildAgentCommandInput(params: {
     workspaceDir: params.workspaceDir,
     deliveryCtx: params.deliveryCtx,
     replyToId: params.replyToId,
+    channel: params.channel,
   };
 }
 
@@ -624,6 +628,7 @@ export async function handleOpenAiHttpRequest(
   const workspaceOverride = resolveWorkspaceOverride(req);
   const deliveryCtx = extractCtxHeaders(req);
   const replyToId = deliveryCtx?.replytoid;
+  const channelRouted = !isInternalMessageChannel(messageChannel);
   const commandInput = buildAgentCommandInput({
     prompt: {
       message: prompt.message,
@@ -638,7 +643,23 @@ export async function handleOpenAiHttpRequest(
     workspaceDir: workspaceOverride,
     deliveryCtx,
     replyToId,
+    deliver: channelRouted,
+    channel: channelRouted ? messageChannel : undefined,
   });
+
+  // Channel-routed request: fire-and-forget, let the channel pipeline deliver.
+  if (channelRouted) {
+    void agentCommandFromIngress(commandInput, defaultRuntime, deps).catch((err) => {
+      logWarn(`openai-compat: channel-routed agent run failed: ${String(err)}`);
+    });
+    sendJson(res, 200, {
+      id: runId,
+      object: "chat.completion",
+      dispatched: true,
+      message: "Response will be delivered via channel",
+    });
+    return true;
+  }
 
   const finalResponseOnly = getHeader(req, "x-openclaw-final-response-only") === "true";
 
