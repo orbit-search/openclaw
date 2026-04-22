@@ -20,10 +20,29 @@ import {
   normalizeOutboundPayloadsForJson,
 } from "../../infra/outbound/payloads.js";
 import type { OutboundSessionContext } from "../../infra/outbound/session-context.js";
+import { resolveSendableOutboundReplyParts } from "../../plugin-sdk/reply-payload.js";
 import type { RuntimeEnv } from "../../runtime.js";
 import { isInternalMessageChannel } from "../../utils/message-channel.js";
 import { AGENT_LANE_NESTED } from "../lanes.js";
 import type { AgentCommandOpts } from "./types.js";
+
+/**
+ * When a channel declares `finalResponseOnly`, filter payloads to keep only
+ * the last non-reasoning text reply plus any media-only payloads.
+ * Mirrors the post-hoc filtering in dispatch-from-config.ts.
+ */
+function filterPayloadsForFinalResponseOnly(payloads: ReplyPayload[]): ReplyPayload[] {
+  if (payloads.length === 0) {
+    return payloads;
+  }
+  const lastTextReply = [...payloads]
+    .toReversed()
+    .find((r) => r.text?.trim() && r.isReasoning !== true && r.isCompactionNotice !== true);
+  const mediaOnlyReplies = payloads.filter(
+    (r) => !r.text?.trim() && resolveSendableOutboundReplyParts(r).hasMedia,
+  );
+  return lastTextReply ? [...mediaOnlyReplies, lastTextReply] : mediaOnlyReplies;
+}
 
 type RunResult = Awaited<ReturnType<(typeof import("../pi-embedded.js"))["runEmbeddedPiAgent"]>>;
 
@@ -274,7 +293,11 @@ export async function deliverAgentCommandResult(params: {
     return { payloads: [], meta: result.meta };
   }
 
-  const deliveryPayloads = normalizeOutboundPayloads(normalizedReplyPayloads);
+  const finalResponseOnly = deliver && deliveryPlugin?.capabilities?.finalResponseOnly === true;
+  const filteredReplyPayloads = finalResponseOnly
+    ? filterPayloadsForFinalResponseOnly(normalizedReplyPayloads)
+    : normalizedReplyPayloads;
+  const deliveryPayloads = normalizeOutboundPayloads(filteredReplyPayloads);
   const logPayload = (payload: NormalizedOutboundPayload) => {
     if (opts.json) {
       return;
