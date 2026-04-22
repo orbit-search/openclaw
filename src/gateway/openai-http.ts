@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { ImageContent } from "../agents/command/types.js";
+import { getChannelPlugin, normalizeChannelId } from "../channels/plugins/index.js";
 import { createDefaultDeps } from "../cli/deps.js";
 import { agentCommandFromIngress } from "../commands/agent.js";
 import type { GatewayHttpChatCompletionsConfig } from "../config/types.gateway.js";
@@ -148,6 +149,7 @@ function buildAgentCommandInput(params: {
   deliver?: boolean;
   channel?: string;
   to?: string;
+  thinking?: string;
 }) {
   return {
     message: params.prompt.message,
@@ -166,6 +168,7 @@ function buildAgentCommandInput(params: {
     replyToId: params.replyToId,
     channel: params.channel,
     to: params.to,
+    thinking: params.thinking,
   };
 }
 
@@ -632,6 +635,16 @@ export async function handleOpenAiHttpRequest(
   const replyToId = deliveryCtx?.replytoid;
   const channelRouted = !isInternalMessageChannel(messageChannel);
   const deliverTo = channelRouted ? getHeader(req, "x-openclaw-deliver-to")?.trim() : undefined;
+
+  // When delivering to a channel with finalResponseOnly, force extended thinking
+  // so the model's reasoning goes into thinking blocks (automatically stripped)
+  // instead of polluting the user-facing text output.
+  const channelPlugin = channelRouted
+    ? getChannelPlugin(normalizeChannelId(messageChannel) ?? messageChannel)
+    : undefined;
+  const channelThinking =
+    channelPlugin?.capabilities?.finalResponseOnly === true ? "low" : undefined;
+
   const commandInput = buildAgentCommandInput({
     prompt: {
       message: prompt.message,
@@ -649,6 +662,7 @@ export async function handleOpenAiHttpRequest(
     deliver: channelRouted,
     channel: channelRouted ? messageChannel : undefined,
     to: deliverTo || undefined,
+    thinking: channelThinking,
   });
 
   // Channel-routed request: fire-and-forget, let the channel pipeline deliver.
