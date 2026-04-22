@@ -300,6 +300,7 @@ export async function runSubagentAnnounceFlow(params: {
   childRunId: string;
   requesterSessionKey: string;
   requesterOrigin?: DeliveryContext;
+  deliveryCtx?: Record<string, string>;
   requesterDisplayKey: string;
   task: string;
   timeoutMs: number;
@@ -597,6 +598,7 @@ export async function runSubagentAnnounceFlow(params: {
       internalEvents,
       summaryLine: taskLabel,
       requesterSessionOrigin: targetRequesterOrigin,
+      deliveryCtx: params.deliveryCtx,
       requesterOrigin:
         expectsCompletionMessage && !requesterIsSubagent
           ? completionDirectOrigin

@@ -29,6 +29,7 @@ export type AnnounceQueueItem = {
   enqueuedAt: number;
   sessionKey: string;
   origin?: DeliveryContext;
+  deliveryCtx?: Record<string, string>;
   originKey?: string;
   sourceSessionKey?: string;
   sourceChannel?: string;

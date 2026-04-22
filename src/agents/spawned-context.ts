@@ -14,6 +14,7 @@ export type SpawnedToolContext = {
   agentGroupId?: string | null;
   agentGroupChannel?: string | null;
   agentGroupSpace?: string | null;
+  agentDeliveryCtx?: Record<string, string>;
   workspaceDir?: string;
 };
 

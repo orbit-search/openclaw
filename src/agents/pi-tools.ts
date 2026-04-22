@@ -224,6 +224,8 @@ export function createOpenClawCodingTools(options?: {
   agentAccountId?: string;
   messageTo?: string;
   messageThreadId?: string | number;
+  /** Channel delivery context forwarded from HTTP ingress (X-OpenClaw-Ctx-* headers). */
+  agentDeliveryCtx?: Record<string, string>;
   sandbox?: SandboxContext | null;
   sessionKey?: string;
   /** Ephemeral session UUID — regenerated on /new and /reset. */
@@ -531,6 +533,7 @@ export function createOpenClawCodingTools(options?: {
       agentAccountId: options?.agentAccountId,
       agentTo: options?.messageTo,
       agentThreadId: options?.messageThreadId,
+      agentDeliveryCtx: options?.agentDeliveryCtx,
       agentGroupId: options?.groupId ?? null,
       agentGroupChannel: options?.groupChannel ?? null,
       agentGroupSpace: options?.groupSpace ?? null,

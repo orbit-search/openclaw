@@ -94,6 +94,7 @@ export type SpawnSubagentContext = {
   agentAccountId?: string;
   agentTo?: string;
   agentThreadId?: string | number;
+  agentDeliveryCtx?: Record<string, string>;
   agentGroupId?: string | null;
   agentGroupChannel?: string | null;
   agentGroupSpace?: string | null;
@@ -800,6 +801,7 @@ export async function spawnSubagentDirect(
       controllerSessionKey: requesterInternalKey,
       requesterSessionKey: requesterInternalKey,
       requesterOrigin,
+      deliveryCtx: ctx.agentDeliveryCtx,
       requesterDisplayKey,
       task,
       cleanup,

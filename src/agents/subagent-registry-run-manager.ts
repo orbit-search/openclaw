@@ -266,6 +266,7 @@ export function createSubagentRunManager(params: {
     controllerSessionKey?: string;
     requesterSessionKey: string;
     requesterOrigin?: DeliveryContext;
+    deliveryCtx?: Record<string, string>;
     requesterDisplayKey: string;
     task: string;
     cleanup: "delete" | "keep";
@@ -299,6 +300,7 @@ export function createSubagentRunManager(params: {
         registerParams.controllerSessionKey ?? registerParams.requesterSessionKey,
       requesterSessionKey: registerParams.requesterSessionKey,
       requesterOrigin,
+      deliveryCtx: registerParams.deliveryCtx,
       requesterDisplayKey: registerParams.requesterDisplayKey,
       task: registerParams.task,
       cleanup: registerParams.cleanup,

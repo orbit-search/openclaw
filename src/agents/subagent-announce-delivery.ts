@@ -315,6 +315,7 @@ async function sendAnnounce(item: AnnounceQueueItem) {
       accountId: requesterIsSubagent ? undefined : origin?.accountId,
       to: requesterIsSubagent ? undefined : origin?.to,
       threadId: requesterIsSubagent ? undefined : threadId,
+      deliveryCtx: item.deliveryCtx,
       deliver: !requesterIsSubagent,
       internalEvents: item.internalEvents,
       inputProvenance: {
@@ -386,6 +387,7 @@ async function maybeQueueSubagentAnnounce(params: {
   steerMessage: string;
   summaryLine?: string;
   requesterOrigin?: DeliveryContext;
+  deliveryCtx?: Record<string, string>;
   sourceSessionKey?: string;
   sourceChannel?: string;
   sourceTool?: string;
@@ -437,6 +439,7 @@ async function maybeQueueSubagentAnnounce(params: {
         enqueuedAt: Date.now(),
         sessionKey: matchedKey,
         origin,
+        deliveryCtx: params.deliveryCtx,
         sourceSessionKey: params.sourceSessionKey,
         sourceChannel: params.sourceChannel,
         sourceTool: params.sourceTool,
@@ -578,6 +581,7 @@ export async function deliverSubagentAnnouncement(params: {
   internalEvents?: AgentInternalEvent[];
   summaryLine?: string;
   requesterSessionOrigin?: DeliveryContext;
+  deliveryCtx?: Record<string, string>;
   requesterOrigin?: DeliveryContext;
   completionDirectOrigin?: DeliveryContext;
   directOrigin?: DeliveryContext;
@@ -602,6 +606,7 @@ export async function deliverSubagentAnnouncement(params: {
         steerMessage: params.steerMessage,
         summaryLine: params.summaryLine,
         requesterOrigin: params.requesterOrigin,
+        deliveryCtx: params.deliveryCtx,
         sourceSessionKey: params.sourceSessionKey,
         sourceChannel: params.sourceChannel,
         sourceTool: params.sourceTool,

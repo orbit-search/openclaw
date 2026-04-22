@@ -40,6 +40,8 @@ export type RunEmbeddedPiAgentParams = {
   messageTo?: string;
   /** Thread/topic identifier for routing replies to the originating thread. */
   messageThreadId?: string | number;
+  /** Channel delivery context forwarded from HTTP ingress (X-OpenClaw-Ctx-* headers). */
+  deliveryCtx?: Record<string, string>;
   /** Group id for channel-level tool policy resolution. */
   groupId?: string | null;
   /** Group channel label (e.g. #general) for channel-level tool policy resolution. */

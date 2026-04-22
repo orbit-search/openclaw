@@ -441,6 +441,7 @@ export function runAgentAttempt(params: {
     agentAccountId: params.runContext.accountId,
     messageTo: params.opts.replyTo ?? params.opts.to,
     messageThreadId: params.opts.threadId,
+    deliveryCtx: params.opts.deliveryCtx,
     groupId: params.runContext.groupId,
     groupChannel: params.runContext.groupChannel,
     groupSpace: params.runContext.groupSpace,

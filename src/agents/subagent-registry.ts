@@ -576,6 +576,7 @@ export function registerSubagentRun(params: {
   controllerSessionKey?: string;
   requesterSessionKey: string;
   requesterOrigin?: DeliveryContext;
+  deliveryCtx?: Record<string, string>;
   requesterDisplayKey: string;
   task: string;
   cleanup: "delete" | "keep";
