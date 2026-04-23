@@ -234,7 +234,7 @@ export async function runCronIsolatedAgentTurn(params: {
   const hookExternalContentSource =
     payloadHookExternalContentSource ?? resolveHookExternalContentSource(baseSessionKey);
 
-  const workspaceDirRaw = resolveAgentWorkspaceDir(params.cfg, agentId);
+  const workspaceDirRaw = params.job.workspacePath ?? resolveAgentWorkspaceDir(params.cfg, agentId);
   const agentDir = resolveAgentDir(params.cfg, agentId);
   const workspace = await ensureAgentWorkspace({
     dir: workspaceDirRaw,

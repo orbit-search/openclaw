@@ -68,6 +68,7 @@ export function registerCronAddCommand(cron: Command) {
       .option("--delete-after-run", "Delete one-shot job after it succeeds", false)
       .option("--keep-after-run", "Keep one-shot job after it succeeds", false)
       .option("--agent <id>", "Agent id for this job")
+      .option("--workspace <path>", "Workspace path override (absolute path)")
       .option("--session <target>", "Session target (main|isolated)")
       .option("--session-key <key>", "Session key for job routing (e.g. agent:my-agent:my-session)")
       .option("--wake <mode>", "Wake mode (now|next-heartbeat)", "now")
@@ -224,6 +225,14 @@ export function registerCronAddCommand(cron: Command) {
               ? opts.sessionKey.trim()
               : undefined;
 
+          const workspacePath =
+            typeof opts.workspace === "string" && opts.workspace.trim()
+              ? opts.workspace.trim()
+              : undefined;
+          if (workspacePath && !workspacePath.startsWith("/")) {
+            throw new Error("--workspace must be an absolute path");
+          }
+
           const params = {
             name,
             description,
@@ -231,6 +240,7 @@ export function registerCronAddCommand(cron: Command) {
             deleteAfterRun: opts.deleteAfterRun ? true : opts.keepAfterRun ? false : undefined,
             agentId,
             sessionKey,
+            workspacePath,
             schedule,
             sessionTarget,
             wakeMode,

@@ -3,6 +3,9 @@ export type CronJobBase<TSchedule, TSessionTarget, TWakeMode, TPayload, TDeliver
     id: string;
     agentId?: string;
     sessionKey?: string;
+    /** Optional workspace path override for multi-tenant setups. When set, the cron run uses this
+     *  workspace instead of the agent's default workspace directory. */
+    workspacePath?: string;
     name: string;
     description?: string;
     enabled: boolean;

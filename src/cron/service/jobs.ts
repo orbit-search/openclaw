@@ -540,10 +540,15 @@ export function createJob(state: CronServiceState, input: CronJobCreate): CronJo
         ? true
         : undefined;
   const enabled = typeof input.enabled === "boolean" ? input.enabled : true;
+  const workspacePath =
+    typeof input.workspacePath === "string" && input.workspacePath.trim()
+      ? input.workspacePath.trim()
+      : undefined;
   const job: CronJob = {
     id,
     agentId: normalizeOptionalAgentId(input.agentId),
     sessionKey: normalizeOptionalSessionKey((input as { sessionKey?: unknown }).sessionKey),
+    workspacePath,
     name: normalizeRequiredName(input.name),
     description: normalizeOptionalText(input.description),
     enabled,
@@ -649,6 +654,10 @@ export function applyJobPatch(
   }
   if ("sessionKey" in patch) {
     job.sessionKey = normalizeOptionalSessionKey((patch as { sessionKey?: unknown }).sessionKey);
+  }
+  if ("workspacePath" in patch) {
+    const raw = (patch as { workspacePath?: unknown }).workspacePath;
+    job.workspacePath = typeof raw === "string" && raw.trim() ? raw.trim() : undefined;
   }
   assertSupportedJobSpec(job);
   assertMainSessionAgentId(job, opts?.defaultAgentId);
